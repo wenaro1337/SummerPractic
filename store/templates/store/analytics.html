@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Аналитика{% endblock %}
+
+{% block content %}
+    <h2>Аналитика магазина</h2>
+
+    <div class="top-buttons">
+        <a class="btn" href="{% url 'product_list' %}">Назад к товарам</a>
+    </div>
+
+    {% if empty %}
+        <p class="empty">В базе нет товаров, считать нечего.</p>
+    {% else %}
+
+        {# самый продаваемый товар #}
+        <h3>Самый продаваемый товар</h3>
+        <p>
+            <b>{{ best.code }} — {{ best.name }}</b>,
+            продано {{ best.sale_volume }} ед. на сумму {{ best.revenue|floatformat:2 }} руб.
+        </p>
+
+        <div class="chart">
+            <img src="data:image/png;base64,{{ chart_sales }}" alt="Гистограмма продаж">
+        </div>
+
+        {# просроченные товары #}
+        <h3>Товары с истёкшим сроком хранения ({{ expired|length }})</h3>
+        {% if expired %}
+            <div class="table-box">
+                <table>
+                    <thead>
+                        <tr><th>Код</th><th>Название</th><th>Поступление</th><th>Годен до</th><th>Остаток</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for p in expired %}
+                            <tr>
+                                <td>{{ p.code }}</td>
+                                <td>{{ p.name }}</td>
+                                <td>{{ p.arrival_date|date:"d.m.Y" }}</td>
+                                <td class="expired">{{ p.expiry_date|date:"d.m.Y" }}</td>
+                                <td>{{ p.remainder }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="empty">Просроченных товаров нет.</p>
+        {% endif %}
+
+        <div class="chart">
+            <img src="data:image/png;base64,{{ chart_state }}" alt="Круговая диаграмма состояния товаров">
+        </div>
+
+        {# уценка #}
+        <h3>Товары на уценку ({{ to_discount|length }})</h3>
+        <p>Сюда попадают товары, которые пролежали больше половины срока хранения,
+           но ещё не просрочены и не уценены.</p>
+        {% if to_discount %}
+            <div class="table-box">
+                <table>
+                    <thead>
+                        <tr><th>Код</th><th>Название</th><th>Срок использован</th><th>Цена сейчас</th><th>Цена после уценки</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for p in to_discount %}
+                            <tr>
+                                <td>{{ p.code }}</td>
+                                <td>{{ p.name }}</td>
+                                <td>{{ p.shelf_life_used }}%</td>
+                                <td>{{ p.price }} ₽</td>
+                                <td>{% widthratio p.price 100 70 %} ₽</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <form method="post" action="{% url 'apply_discount' %}" style="margin-top:10px;">
+                {% csrf_token %}
+                <button class="btn" type="submit">Уценить все на {{ discount_percent }}%</button>
+            </form>
+        {% else %}
+            <p class="empty">Товаров для уценки сейчас нет.</p>
+        {% endif %}
+
+        <div class="chart">
+            <img src="data:image/png;base64,{{ chart_packages }}" alt="Гистограмма по упаковке">
+        </div>
+
+        {# доход по месяцам и прогноз #}
+        <h3>Доход магазина по месяцам</h3>
+        <p>Общий доход за всё время: <b>{{ total_revenue|floatformat:2 }} руб.</b></p>
+
+        {# тенденция развития дохода #}
+        {% if trend %}
+            <p>Тенденция развития дохода: доход
+                <b>{% if trend.growing %}растёт{% else %}падает{% endif %}</b>
+                в среднем на <b>{{ trend.slope|floatformat:2 }} руб. в месяц</b>.</p>
+        {% endif %}
+
+        <div class="table-box">
+            <table>
+                <thead>
+                    <tr><th>Месяц</th><th>Доход, руб.</th><th>Тип</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in month_rows %}
+                        <tr>
+                            <td>{{ row.label }}</td>
+                            <td>{{ row.value|floatformat:2 }}</td>
+                            <td>факт</td>
+                        </tr>
+                    {% endfor %}
+                    {% for row in forecast_rows %}
+                        <tr>
+                            <td>{{ row.label }}</td>
+                            <td>{{ row.value|floatformat:2 }}</td>
+                            <td><b>прогноз</b></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="chart">
+            <img src="data:image/png;base64,{{ chart_revenue }}" alt="График дохода по месяцам">
+        </div>
+
+        <p>Прогноз построен методом наименьших квадратов: по фактическим данным
+           строится линия тренда, по ней считается доход на три ближайших месяца.</p>
+
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Список товаров{% endblock %}
+
+{% block content %}
+    <h2>Товары</h2>
+
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <a class="btn btn-primary" href="{% url 'product_create' %}">Добавить товар</a>
+            <a class="btn" href="{% url 'analytics' %}">Аналитика</a>
+        </div>
+        <details class="help">
+            <summary class="btn">Подсказки</summary>
+            <div class="help-box">
+                <ul>
+                    <li>Введите код или название и нажмите «Показать».</li>
+                    <li>Фильтр можно применять вместе с поиском.</li>
+                    <li>«Сбросить» возвращает полный список товаров.</li>
+                    <li>Перед загрузкой базы текущая база сохраняется в резервную копию.</li>
+                </ul>
+            </div>
+        </details>
+    </div>
+
+    <div class="toolbar">
+        <form method="get" class="toolbar-group filter-form">
+            <input type="text" name="q" value="{{ query }}" class="field search-field"
+                   placeholder="Поиск по коду или названию">
+            <select name="filter" class="field" style="width:auto" aria-label="Фильтр товаров">
+                <option value="all" {% if current_filter == "all" %}selected{% endif %}>Все товары</option>
+                <option value="expired" {% if current_filter == "expired" %}selected{% endif %}>Просроченные</option>
+                <option value="discount" {% if current_filter == "discount" %}selected{% endif %}>На уценку</option>
+                <option value="top" {% if current_filter == "top" %}selected{% endif %}>Самые продаваемые</option>
+            </select>
+            <button class="btn" type="submit">Показать</button>
+            <a class="btn" href="{% url 'product_list' %}">Сбросить</a>
+        </form>
+
+        <div class="toolbar-group">
+            <span class="database-label">База данных:</span>
+            <a class="btn" href="{% url 'database_export' %}">Выгрузить</a>
+            <form method="post" action="{% url 'database_upload' %}"
+                  enctype="multipart/form-data" class="toolbar-group database-form">
+                {% csrf_token %}
+                <input type="file" name="dbfile" accept=".sqlite,.sqlite3,.db" required
+                       aria-label="Файл базы данных SQLite">
+                <button class="btn" type="submit">Загрузить</button>
+            </form>
+        </div>
+    </div>
+
+    {% if not db_ok %}
+        <p class="empty" style="border:1px solid #a00; background:#f7dede; color:#a00;">
+            {{ db_error }}<br>
+            Загрузите подходящую базу или вернитесь к резервной копии из папки backups.
+        </p>
+    {% endif %}
+
+    <div class="table-box">
+        <table class="product-table">
+            <thead>
+                <tr>
+                    <th>Код</th>
+                    <th>Название</th>
+                    <th>Упаковка</th>
+                    <th>Поступление</th>
+                    <th>Годен до</th>
+                    <th>Закупка</th>
+                    <th>Продажа</th>
+                    <th>Остаток</th>
+                    <th>Цена</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                    <tr>
+                        <td>{{ product.code }}</td>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.get_package_display }}</td>
+                        <td>{{ product.arrival_date|date:"d.m.Y" }}</td>
+                        {# просроченные товары помечаем красным #}
+                        <td class="{% if product.is_expired %}expired{% endif %}">
+                            {{ product.expiry_date|date:"d.m.Y" }}
+                            {% if product.is_expired %}(просрочен){% endif %}
+                        </td>
+                        <td>{{ product.purchase_volume }}</td>
+                        <td>{{ product.sale_volume }}</td>
+                        <td>{{ product.remainder }}</td>
+                        <td>{{ product.price }} ₽</td>
+                        <td>
+                            <a class="btn" href="{% url 'product_update' product.pk %}">Изменить</a>
+                            <a class="btn btn-del" href="{% url 'product_delete' product.pk %}">Удалить</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="10" class="empty">В базе пока нет ни одного товара.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
